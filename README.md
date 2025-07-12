@@ -84,7 +84,6 @@ lib/
 assets/
 ├── images/            # Imagens dos itens e ícones
 test/
-├── widget_test.dart   # Testes automatizados
 ```
 
 ## 🌍 Impacto Educacional
@@ -101,11 +100,3 @@ Este jogo contribui para:
 - **Dart** - Linguagem de programação
 - **Material Design** - Sistema de design
 - **Animações Flutter** - Para transições suaves
-
-## 📝 Licença
-
-Este projeto foi desenvolvido para fins educacionais e de conscientização ambiental.
-
----
-
-**Desenvolvido com 💚 para um planeta mais sustentável**
