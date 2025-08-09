@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
@@ -17,6 +19,9 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
   int itemAtual = 0;
   late AnimationController _itemAnimationController;
   late Animation<double> _itemAnimation;
+  late List<Map<String, dynamic>> _itensDoQuiz;
+  late Timer _timer;
+  int _countdown = 10;
 
   @override
   void initState() {
@@ -29,23 +34,48 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
       parent: _itemAnimationController,
       curve: Curves.elasticOut,
     );
-    _itemAnimationController.forward();
 
-    // Embaralhar itens para variedade
+    _iniciarQuiz();
+  }
+
+  void _iniciarQuiz() {
+    // Seleciona 10 itens aleatórios
     itens.shuffle(Random());
+    _itensDoQuiz = itens.take(10).toList();
+    itemAtual = 0;
+    pontuacao = 0;
+    _startTimer();
+    _itemAnimationController.forward();
+  }
+
+  void _startTimer() {
+    _countdown = 10; // Reseta o tempo para cada item
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_countdown > 0) {
+          _countdown--;
+        } else {
+          timer.cancel();
+          _verificarResposta('Tempo Esgotado'); // Resposta incorreta por tempo
+        }
+      });
+    });
   }
 
   @override
   void dispose() {
     _itemAnimationController.dispose();
+    _timer.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (itemAtual >= itens.length) {
+    if (itemAtual >= _itensDoQuiz.length) {
+      _timer.cancel(); // Garante que o timer seja cancelado ao final do jogo
       return _telaFinal();
     }
+
 
     return Scaffold(
       body: Container(
@@ -92,7 +122,7 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
                             ),
                           ),
                           Text(
-                            'Item ${itemAtual + 1} de ${itens.length}',
+                            'Item ${itemAtual + 1} de ${_itensDoQuiz.length}',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.green[600],
@@ -135,14 +165,25 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: LinearProgressIndicator(
-                    value: itemAtual / itens.length,
-                    backgroundColor: Colors.grey[300],
+                    value: itemAtual / _itensDoQuiz.length,
+                    backgroundColor: Colors.blueGrey[300],
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.green[600]!),
                     minHeight: 6,
                   ),
                 ),
               ),
 
+              const SizedBox(height: 20),
+
+              // Temporizador
+              Text(
+                'Tempo: $_countdown s',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: _countdown <= 5 ? Colors.red : Colors.green[700],
+                ),
+              ),
               const SizedBox(height: 20),
 
               // Item atual
@@ -180,7 +221,7 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
                                     width: 80,
                                     height: 80,
                                     child: Image.asset(
-                                      itens[itemAtual]['imagem'],
+                                      _itensDoQuiz[itemAtual]['imagem'],
                                       fit: BoxFit.contain,
                                       errorBuilder: (context, error, stackTrace) {
                                         return Icon(
@@ -193,7 +234,7 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
                                   ),
                                   const SizedBox(height: 15),
                                   Text(
-                                    itens[itemAtual]['nome'],
+                                    _itensDoQuiz[itemAtual]['nome'],
                                     style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -201,7 +242,7 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
                                   ),
                                   const SizedBox(height: 5),
                                   Text(
-                                    itens[itemAtual]['dica'],
+                                    _itensDoQuiz[itemAtual]['dica'],
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 12,
@@ -307,14 +348,15 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
   }
 
   void _verificarResposta(String categoriaEscolhida) {
-    bool acertou = categoriaEscolhida == itens[itemAtual]['categoria'];
+    _timer.cancel(); // Para o timer quando uma resposta é dada
+    bool acertou = categoriaEscolhida == _itensDoQuiz[itemAtual]['categoria'];
 
     if (acertou) {
       setState(() {
         pontuacao += 10;
       });
       HapticFeedback.lightImpact();
-    } else {
+    } else if (categoriaEscolhida != 'Tempo Esgotado') { // Não penaliza duas vezes por tempo esgotado
       HapticFeedback.heavyImpact();
     }
 
@@ -364,6 +406,8 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
               Text(
                 acertou
                     ? 'Você classificou corretamente o item! 🎉'
+                    : categoriaEscolhida == 'Tempo Esgotado'
+                    ? 'O tempo esgotou! Tente ser mais rápido na próxima. ⏱️'
                     : 'Não foi dessa vez, mas continue tentando! 💪',
                 style: const TextStyle(fontSize: 14, height: 1.4),
               ),
@@ -380,7 +424,7 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Categoria correta: ${itens[itemAtual]['categoria']}',
+                        'Categoria correta: ${_itensDoQuiz[itemAtual]['categoria']}',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -426,8 +470,11 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
                   Navigator.of(context).pop();
                   setState(() {
                     itemAtual++;
-                    _itemAnimationController.reset();
-                    _itemAnimationController.forward();
+                    if (itemAtual < _itensDoQuiz.length) {
+                      _startTimer(); // Inicia o timer para o próximo item
+                      _itemAnimationController.reset();
+                      _itemAnimationController.forward();
+                    }
                   });
                 },
                 style: ElevatedButton.styleFrom(
@@ -439,7 +486,7 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 child: Text(
-                  itemAtual + 1 >= itens.length ? 'Ver Resultado' : 'Próximo Item',
+                  itemAtual + 1 >= _itensDoQuiz.length ? 'Ver Resultado' : 'Próximo Item',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -454,7 +501,7 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
   }
 
   Widget _telaFinal() {
-    double porcentagemAcertos = (pontuacao / (itens.length * 10)) * 100;
+    double porcentagemAcertos = (pontuacao / (_itensDoQuiz.length * 10)) * 100;
     String mensagem = '';
     IconData icone = Icons.emoji_events;
     Color corMensagem = Colors.green;
@@ -564,7 +611,7 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
                         children: [
                           buildStatCard('Pontuação', '$pontuacao', Icons.star, Colors.amber),
                           buildStatCard('Acertos', '${porcentagemAcertos.toStringAsFixed(0)}%', Icons.check_circle, Colors.green),
-                          buildStatCard('Itens', '${itens.length}', Icons.recycling, Colors.blue),
+                          buildStatCard('Itens', '${_itensDoQuiz.length}', Icons.recycling, Colors.blue),
                         ],
                       ),
                     ],
@@ -615,11 +662,7 @@ class _TelaJogoState extends State<TelaJogo> with TickerProviderStateMixin {
                       child: ElevatedButton(
                         onPressed: () {
                           setState(() {
-                            pontuacao = 0;
-                            itemAtual = 0;
-                            itens.shuffle(Random());
-                            _itemAnimationController.reset();
-                            _itemAnimationController.forward();
+                            _iniciarQuiz(); // Reinicia o quiz
                           });
                         },
                         style: ElevatedButton.styleFrom(
